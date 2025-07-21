@@ -186,7 +186,7 @@ async function verifyJavaVersionPath(
     isValid: boolean;
 }> {
     let binPath = path.join(dir.absolutePath, 'bin');
-    let javaPath = '';
+    let javaPath = binPath;
     const validation = await FileUtils.pathExists(binPath);
     console.log("validation",validation)
     if (isSuccess(validation)) {
@@ -196,7 +196,6 @@ async function verifyJavaVersionPath(
         includeDotFiles: true,
         });
         subdirectories.forEach((subdir) => {
-            console.log('subdir:', subdir);
                 if (subdir.name.startsWith(`jdk${targetVersion}`)) {
                     javaPath = path.join(subdir.absolutePath, 'bin');
                 }

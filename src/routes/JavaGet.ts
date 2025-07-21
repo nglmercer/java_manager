@@ -41,8 +41,9 @@ app.get('/download/:version', async (c) => {
     try {
     const alljavaVersions = await JavaInfoService.getInstallableVersions();
     const FindVersion = await JavaInfoService.filter(alljavaVersions.data.releases, Number(version));
-    if (!FindVersion.data) {
-      return c.json({ error: 'Java version not found' }, 404);
+    const isInstalled = await findJavaVersion(defaultPaths.unpackPath, Number(version));
+    if (!FindVersion.data || isInstalled) {
+      return c.json({ error: 'Java version not found or installed?', data:isInstalled}, 404);
     }
     const getFilename = ARCHFILE_NAME(FindVersion.data);
     const downloadJava = await JavaInfoService.downloadJavaRelease(FindVersion.data, getFilename, async (data) => {
