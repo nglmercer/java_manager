@@ -148,7 +148,7 @@ async function filterReleases(releases: JavaRelease[], version: number): Promise
 }
 async function _downloadJavaRelease(
   release: JavaRelease,
-  downloadPath?: string
+  fileName?: string
 ): Promise<string> {
   const response = await fetch(release.downloadUrl);
   if (!response.ok) {
@@ -157,7 +157,7 @@ async function _downloadJavaRelease(
   
   //const filePath = path.join(downloadPath, path.basename(release.downloadUrl));
   const result = await taskManager.download(release.downloadUrl, {
-      
+      fileName
   });
   
   return result;
