@@ -161,11 +161,21 @@ async function _downloadJavaRelease(
   
   return result;
 }
+async function _decompressJavaRelease(
+  release: JavaRelease,
+  unpackPath?: string
+): Promise<string> {
+  const result = await taskManager.unpack(release.downloadUrl, {
+    destination: unpackPath
+  });
+  return result;
+}
 export const JavaInfoService = {
   getInstallableVersions: asyncHandler<JavaVersionsInfo,any>(_getJavaInstallableVersions),
   getJavaInfo: asyncHandler(_getJavaInfoByVersion),
   downloadJavaRelease: asyncHandler(_downloadJavaRelease),
   filter: asyncHandler(filterReleases),
+  decompressJavaRelease: asyncHandler(_decompressJavaRelease),
 };
 // --- API Pública Exportada ---
 

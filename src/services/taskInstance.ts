@@ -23,7 +23,9 @@ const TaskEventsNames: (keyof TaskEvents)[] = [
 ];
 TaskEventsNames.forEach(eventName => {
   taskManager.on(eventName, (task) => {
-    console.log(`Event: ${eventName}`, task);
+    const { payload,details,error,createdAt,updatedAt, ...showData } = task;
+
+    //console.log(`Event: ${eventName}`, showData);
   });
 }); 
 export { taskManager, defaultPaths };
