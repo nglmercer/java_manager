@@ -3,6 +3,13 @@ import { JavaInfoService,type JavaRelease } from '../services/java-info.service.
 import { taskManager, defaultPaths } from '../services/taskInstance.js';
 import path from 'path';
 async function main() {
+  // destination better use javaVersion_arch ✔ || FILENAME❌ OpenJDK8U-jdk_x64_windows_hotspot_8u452b09.zip
+  // taskId = await taskManager.download(url) || await JavaInfoService.downloadJavaRelease(javaVersion).data;
+  // GET DOWNLOAD_FILE_NAME taskManager.getTask(taskId)
+  // tempFile path.join(defaultPaths.downloadPath,DOWNLOAD_FILE_NAME)
+  // FindVersion.data = {featureVersion, arch, os, ...strings }
+  // const UNPACK_PATH = path.join(defaultPaths.unpackPath, (featureVersion + '_' + arch + '_' + os));
+  // taskManager.unpack(tempFile,{destination: UNPACK_PATH})
   const tempFile = path.join(defaultPaths.downloadPath, 'OpenJDK8U-jdk_x64_windows_hotspot_8u452b09.zip');
   try {
 /*     const javaVersion = 8; // Ejemplo de versión, puedes cambiarlo

@@ -12,6 +12,8 @@ export interface JavaRelease {
   releaseName:    string;      // e.g. "jdk-21.0.3+9"
   downloadUrl:    string;      // direct link to the archive
   checksumUrl:    string;      // sha256 link
+  arch:          string;      // e.g. "x64", "aarch64"
+  os:            string;      // e.g. "windows", "linux", "mac
   [key: string]: string | number;
 }
 
