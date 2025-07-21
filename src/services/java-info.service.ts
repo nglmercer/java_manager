@@ -75,7 +75,6 @@ const _getJavaInfoByVersion = async (javaVersion: string | number): Promise<Java
     throw new Error(`Arquitectura no soportada para la API de Adoptium: ${env.arch}`);
   }
 
-  const resultURL = `https://api.adoptium.net/v3/binary/latest/${versionStr}/ga/${env.platform.name}/${arch}/jdk/hotspot/normal/eclipse?project=jdk`;
   const filename = `Java-${versionStr}-${arch}${env.platform.ext}`;
   
   const relativeUnpackPath = path.join(defaultPathBIN, `jdk-${versionStr}`);
@@ -162,10 +161,10 @@ async function _downloadJavaRelease(
   return result;
 }
 async function _decompressJavaRelease(
-  release: JavaRelease,
+  filePath: string,
   unpackPath?: string
 ): Promise<string> {
-  const result = await taskManager.unpack(release.downloadUrl, {
+  const result = await taskManager.unpack(filePath, {
     destination: unpackPath
   });
   return result;

@@ -25,7 +25,7 @@ TaskEventsNames.forEach(eventName => {
   taskManager.on(eventName, (task) => {
     const { payload,details,error,createdAt,updatedAt, ...showData } = task;
 
-    //console.log(`Event: ${eventName}`, showData);
+    console.log(`Event: ${eventName}`, task);
   });
 }); 
 export { taskManager, defaultPaths };
