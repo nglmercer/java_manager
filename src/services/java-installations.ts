@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { getFolderDetails, getDirectoriesOnly } from '../utils/folder.utils.js';
+import { getFolderDetails, getDirectoriesOnly,type FileDetails } from '../utils/folder.utils.js';
 import { env } from '../platforms/env.js';
 import { FileUtils } from '../utils/file.utils.js';
 import {
@@ -114,23 +114,17 @@ export async function scanJavaInstallations(basePath: string): Promise<Installed
       
       // Si no se puede extraer versión, skip
       if (featureVersion === null) continue;
-      
       const { arch, os } = extractArchAndOS(dir.name);
-      const binPath = path.join(dir.absolutePath, 'bin');
-      const javaExecutable = getJavaExecutablePath(binPath);
-      
       // Verificar si existe el ejecutable de Java
-      const isValid = await FileUtils.pathExists(javaExecutable);
+      const ValidVersion = await verifyJavaVersionPath(dir, featureVersion);
       
       javaVersions.push({
         featureVersion,
         folderName: dir.name,
         installPath: dir.absolutePath,
-        binPath,
-        javaExecutable,
         arch,
         os,
-        isValid:isSuccess(isValid)
+        ...ValidVersion
       });
     }
 
@@ -181,4 +175,40 @@ export async function findJavaVersion(
     console.error(`Error finding Java version ${targetVersion} in ${basePath}:`, error);
     return null;
   }
+}
+// verificar en un array de objetos si existe un archivo con nombre startwith jdk${targetVersion} and join o si no existe retornal la path actual
+async function verifyJavaVersionPath(
+  dir: FileDetails, 
+  targetVersion: number
+): Promise<{
+    javaExecutable: string;
+    binPath: string;
+    isValid: boolean;
+}> {
+    let binPath = path.join(dir.absolutePath, 'bin');
+    let javaPath = '';
+    const validation = await FileUtils.pathExists(binPath);
+    console.log("validation",validation)
+    if (isSuccess(validation)) {
+        const subdirectories = await getFolderDetails(dir.absolutePath, '', {
+        recursive: false,
+        includeHidden: false,
+        includeDotFiles: true,
+        });
+        subdirectories.forEach((subdir) => {
+            console.log('subdir:', subdir);
+                if (subdir.name.startsWith(`jdk${targetVersion}`)) {
+                    javaPath = path.join(subdir.absolutePath, 'bin');
+                }
+        })
+    }
+    const ExecutablePath = getJavaExecutablePath(javaPath);
+    const isValid = await FileUtils.pathExists(ExecutablePath);
+    const result = {
+        javaExecutable:ExecutablePath,
+        binPath,
+        isValid: isSuccess(isValid),
+    }
+    console.log("result",result)
+    return result;
 }

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { JavaInfoService,type JavaRelease } from '../services/java-info.service.js';
 import { taskManager, defaultPaths } from '../services/taskInstance.js';
+import { scanJavaInstallations,findJavaVersion } from '../services/java-installations.js';
 import path from 'path';
 const ARCHFILE_NAME = (release: JavaRelease): string => {
   const { featureVersion, arch, os } = release;
@@ -9,7 +10,7 @@ const ARCHFILE_NAME = (release: JavaRelease): string => {
 const app = new Hono();
 // PREFIX: /JAVA
 
-app.get('/ALL', async (c) => {
+app.get('/all', async (c) => {
  // const { text } = c.req.query();
  try {
     const alljavaVersions = await JavaInfoService.getInstallableVersions();
@@ -20,12 +21,12 @@ app.get('/ALL', async (c) => {
     return c.json({ error: 'error',message: String(err instanceof Error ? err.message : err) }, 500);
   }
 });
-//IMCOMPLETE  RETURN {}
-app.get('/java/:version', async (c) => {
+//IMCOMPLETE  RETURN null || {}
+app.get('/find/:version', async (c) => {
   const version = c.req.param('version');
   try {
-    const javaInfo = await JavaInfoService.getJavaInfo(Number(version));
-    if (!javaInfo.data) {
+    const javaInfo = await findJavaVersion(defaultPaths.unpackPath,Number(version));
+    if (!javaInfo) {
       return c.json({ error: 'Java version not found' }, 404);
     }
     return c.json(javaInfo);
@@ -53,5 +54,14 @@ app.get('/download/:version', async (c) => {
       console.error(err);
       return c.json({ error: 'error',message: String(err instanceof Error ? err.message : err) }, 500);
     }
+});
+app.get('/scan', async (c) => {
+  try {
+    const installations = await scanJavaInstallations(defaultPaths.unpackPath);
+    return c.json(installations);
+  } catch (err) {
+    console.error(err);
+    return c.json({ error: 'error',message: String(err instanceof Error ? err.message : err) }, 500);
+  }
 });
 export default app;
