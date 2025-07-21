@@ -36,7 +36,7 @@ export const ALLOWED_EXTENSIONS = [
  */
 export type ServiceResponse<T> =
   | { success: true; data: T,[key: string]: any }
-  | { success: false; error: string };
+  | { success: false; error: string, data: T };
 
 /**
  * Crea una respuesta de éxito estandarizada.
@@ -51,8 +51,9 @@ export const createSuccessResponse = <T>(data: T): ServiceResponse<T> => ({
  * Crea una respuesta de error estandarizada.
  * @param error - El mensaje de error.
  */
-export const createErrorResponse = (error: string): ServiceResponse<never> => ({
+export const createErrorResponse = (error: string,data:any = false): ServiceResponse<any> => ({
   success: false,
+  data,
   error,
 });
 

@@ -2,12 +2,24 @@
 import path from 'node:path';
 import { env } from '../platforms/env.js';
 import { CommandUtils } from '../utils/command-utils.js';
+import { taskManager, defaultPaths } from '../services/taskInstance.js';
 import { FileUtils, isSuccess, asyncHandler } from '../utils/file.utils.js';
+// ------------------------------------------------------------------
+// 1.  Types returned to the caller
+// ------------------------------------------------------------------
+export interface JavaRelease {
+  featureVersion: number;      // e.g. 21
+  releaseName:    string;      // e.g. "jdk-21.0.3+9"
+  downloadUrl:    string;      // direct link to the archive
+  checksumUrl:    string;      // sha256 link
+  [key: string]: string | number;
+}
 
-// --- Interfaces (sin cambios) ---
-export interface JavaInfoTermux { /* ... */ }
-export interface JavaInfoStandard { /* ... */ }
-export type JavaInfo = JavaInfoTermux | JavaInfoStandard;
+export interface JavaVersionsInfo {
+  available: number[];         // e.g. [8, 11, 17, 21, 22]
+  lts:       number[];         // e.g. [8, 11, 17, 21]
+  releases:  JavaRelease[];    // concrete binaries for current platform/arch
+}
 
 const ADOPTIUM_ARCH_MAP: Record<string, string | undefined> = {
     x32: 'x32',
@@ -15,33 +27,48 @@ const ADOPTIUM_ARCH_MAP: Record<string, string | undefined> = {
     x86_64: 'x64',
     arm64: 'aarch64',
 };
+/** Converts Node’s process.platform/arch into Adoptium names. */
+function adoptiumNames() {
+  const platformMap: Record<string, string> = {
+    win32: 'windows',
+    linux: 'linux',
+    darwin: 'mac',
+    android: 'linux',           // Termux still uses linux tar.gz
+  };
+
+  const osName = platformMap[process.platform];
+  const archName = ADOPTIUM_ARCH_MAP[process.arch];
+  if (!osName || !archName) {
+    throw new Error(
+      `Unsupported platform/arch: ${process.platform}/${process.arch}`
+    );
+  }
+  return { os: osName, arch: archName };
+}
+
+
+// --- Interfaces (sin cambios) ---
+export interface JavaInfoTermux { /* ... */ }
+export interface JavaInfoStandard { /* ... */ }
+export type JavaInfo = JavaInfoTermux | JavaInfoStandard;
 
 // --- Lógica Interna Asíncrona ---
 const defaultPathBIN = './binaries/java';
+/*
+  Obtener version de java para minecraft server
+  path: string;
+  existVersion: boolean;
+  versions: string[];
+  arch: string;
+  platform: string;
+  fallbackURL: string;
+  fallbackFilePath: string;
+*/
 const _getJavaInfoByVersion = async (javaVersion: string | number): Promise<JavaInfo> => {
   const versionStr = String(javaVersion ?? '');
   if (!versionStr) {
       throw new Error("La versión de Java no puede estar vacía.");
   }
-
-  // --- Caso Especial: Termux ---
-  if (env.isTermux()) {
-    const packageName = `openjdk-${versionStr}`;
-    const installedResult = await CommandUtils.isPackageInstalled(packageName);
-    
-    // Si la comprobación falla, asumimos que no está instalado
-    const isInstalled = isSuccess(installedResult) && installedResult.data;
-
-    return {
-      isTermux: true,
-      version: versionStr,
-      packageName,
-      installCmd: `pkg install ${packageName}`,
-      javaPath: '/data/data/com.termux/files/usr/bin/',
-      installed: isInstalled,
-    };
-  }
-
   // --- Caso Estándar: Windows, Linux, macOS ---
   const arch = ADOPTIUM_ARCH_MAP[env.arch];
   if (!arch) {
@@ -58,42 +85,88 @@ const _getJavaInfoByVersion = async (javaVersion: string | number): Promise<Java
   let javaBinPath = path.join(absoluteUnpackPath, 'bin');
   const unpackPathExists = await FileUtils.pathExists(absoluteUnpackPath);
 
-  // Si la ruta 'bin' por defecto no existe, pero la carpeta de descompresión sí, la buscamos dentro.
-  if (isSuccess(unpackPathExists) && unpackPathExists.data) {
-      const binPathExists = await FileUtils.pathExists(javaBinPath);
-      if (!isSuccess(binPathExists) || !binPathExists.data) {
-          const folderDetailsResult = await FileUtils.getFolderDetails(defaultPathBIN, `jdk-${versionStr}`);
-          if (isSuccess(folderDetailsResult)) {
-              const files = folderDetailsResult.data;
-              // Caso macOS
-              if (env.isMacOS() && files.length > 0) {
-                  const macOsHomePath = path.join(absoluteUnpackPath, files[0].name, 'Contents', 'Home');
-                  javaBinPath = path.join(macOsHomePath, 'bin');
-              } else {
-                  // Caso Linux/Windows
-                  const jdkFolder = files.find(f => f.isDirectory && f.name.startsWith('jdk-'));
-                  if (jdkFolder) {
-                      javaBinPath = path.join(absoluteUnpackPath, jdkFolder.name, 'bin');
-                  }
-              }
-          }
-      }
+  return {
+
+  }
+};
+async function _getJavaInstallableVersions(): Promise<JavaVersionsInfo> {
+  const { os, arch } = adoptiumNames();
+
+  // 3.1 – which feature releases exist?
+  const availRes = await fetch('https://api.adoptium.net/v3/info/available_releases');
+  if (!availRes.ok) throw new Error(`Adoptium API error: ${availRes.status}`);
+  const { available_releases, most_recent_lts } =
+    (await availRes.json()) as {
+      available_releases: number[];
+      most_recent_lts: number;
+    };
+
+  // 3.2 – for every available release, list latest GA binary
+  const releases: JavaRelease[] = [];
+  for (const feature of available_releases) {
+    // Only consider GA releases (not ea)
+    const url =
+      `https://api.adoptium.net/v3/assets/latest/${feature}/hotspot?` +
+      `os=${os}&architecture=${arch}&image_type=jdk&project=jdk`;
+    const res = await fetch(url);
+    if (!res.ok) continue; // version might not exist for this platform
+    const payload = (await res.json()) as Array<{
+      release_name: string;
+      binary: {
+        package: { name: string; link: string; checksum: string, size: number };
+      };
+    }>;
+
+    if (!payload.length) continue;
+    const { release_name, binary } = payload[0];
+    //console.log("binary", binary);
+    releases.push({
+      featureVersion: feature,
+      releaseName: release_name,
+      downloadUrl: binary.package.link,
+      checksumUrl: binary.package.checksum,
+      size: binary.package.size,
+      arch: arch,
+      os: os,
+    });
   }
 
   return {
-    isTermux: false,
-    url: resultURL,
-    filename,
-    version: versionStr,
-    downloadPath: path.join(defaultPathBIN, filename),
-    unpackPath: relativeUnpackPath,
-    absoluteDownloadPath: path.resolve(defaultPathBIN, filename),
-    absoluteUnpackPath,
-    javaBinPath,
-    installed: await FileUtils.pathExists(javaBinPath),
+    available: available_releases,
+    lts: available_releases.filter((v) => v <= most_recent_lts),
+    releases,
   };
-};
+}
+async function filterReleases(releases: JavaRelease[], version: number): Promise<JavaRelease| false> {
+  const findVersion = releases.find((r) => r.featureVersion === version);
+  if (!findVersion) {
+    return false;
+  }
 
+  return findVersion;
+}
+async function _downloadJavaRelease(
+  release: JavaRelease,
+  downloadPath?: string
+): Promise<string> {
+  const response = await fetch(release.downloadUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download Java release: ${response.statusText}`);
+  }
+  
+  //const filePath = path.join(downloadPath, path.basename(release.downloadUrl));
+  const result = await taskManager.download(release.downloadUrl, {
+      
+  });
+  
+  return result;
+}
+export const JavaInfoService = {
+  getInstallableVersions: asyncHandler<JavaVersionsInfo,any>(_getJavaInstallableVersions),
+  getJavaInfo: asyncHandler(_getJavaInfoByVersion),
+  downloadJavaRelease: asyncHandler(_downloadJavaRelease),
+  filter: asyncHandler(filterReleases),
+};
 // --- API Pública Exportada ---
 
 /**

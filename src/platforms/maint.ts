@@ -1,15 +1,16 @@
 import { env } from './env.js';
-import { getJavaInfo } from '../services/java-info.service.js';
+import { JavaInfoService,type JavaRelease } from '../services/java-info.service.js';
 async function main() {
   try {
     const javaVersion = '17'; // Ejemplo de versión, puedes cambiarlo
-    const javaInfo = await getJavaInfo(javaVersion);
-    
-    if (javaInfo) {
-      console.log('Información de Java:', javaInfo);
-    } else {
-      console.log('No se encontró información para la versión especificada.');
-    }
+    const javaInfo = await JavaInfoService.getJavaInfo(javaVersion);
+    const alljavaVersions = await JavaInfoService.getInstallableVersions();
+    const FindVersion = await JavaInfoService.filter(alljavaVersions.data.releases, 17);
+    if (!FindVersion.data)return;
+    const downloadJava = await JavaInfoService.downloadJavaRelease(FindVersion.data);
+    console.log('Información de Java:', javaInfo);
+      console.log('Versiones de Java disponibles:', alljavaVersions);
+      console.log('Descarga de Java:', downloadJava);
   } catch (error) {
     console.error('Error al obtener la información de Java:', error);
   }
