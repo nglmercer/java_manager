@@ -4,7 +4,7 @@ import { taskManager, defaultPaths } from '../services/taskInstance.js';
 import path from 'path';
 const ARCHFILE_NAME = (release: JavaRelease): string => {
   const { featureVersion, arch, os } = release;
-  return `${featureVersion}_${arch}_${os}`;
+  return `${featureVersion}_${arch}_${os}.zip`;
 }
 async function main() {
   // destination better use javaVersion_arch ✔ || FILENAME❌ OpenJDK8U-jdk_x64_windows_hotspot_8u452b09.zip
@@ -21,13 +21,14 @@ async function main() {
     const FindVersion = await JavaInfoService.filter(alljavaVersions.data.releases, javaVersion);
     if (!FindVersion.data)return;
     const getFilename = ARCHFILE_NAME(FindVersion.data);
-    const downloadJava = await JavaInfoService.downloadJavaRelease(FindVersion.data,getFilename);
+    const downloadJava = await JavaInfoService.downloadJavaRelease(FindVersion.data,getFilename,async(data)=> {
+      const decompressJava = await taskManager.unpack(path.join(defaultPaths.downloadPath, getFilename));
+      console.log('decompressJava:',decompressJava,data,downloadJava)
+    });
 /*     
     const javaInfo = await JavaInfoService.getJavaInfo(javaVersion);
     const TaskInfo = await taskManager.getTask(downloadJava.data);
     console.log("TaskInfo:", TaskInfo,downloadJava); 
-    const decompressJava = await taskManager.unpack(path.join(defaultPaths.downloadPath, getFilename));
-    console.log('decompressJava:',decompressJava,getFilename,downloadJava)
     */
     // downloadJava {success: boolean, data: string} data:TaskId | string
     //console.log('Información de Java:', javaInfo);
