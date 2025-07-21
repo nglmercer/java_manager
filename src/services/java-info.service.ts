@@ -3,7 +3,12 @@ import path from 'node:path';
 import { env } from '../platforms/env.js';
 import { CommandUtils } from '../utils/command-utils.js';
 import { taskManager, defaultPaths } from '../services/taskInstance.js';
-import { FileUtils, isSuccess, asyncHandler } from '../utils/file.utils.js';
+import { FileUtils, asyncHandler } from '../utils/file.utils.js';
+import {
+  createSuccessResponse,
+  createErrorResponse,
+  isSuccess
+} from '../utils/validator.js';
 // ------------------------------------------------------------------
 // 1.  Types returned to the caller
 // ------------------------------------------------------------------
@@ -172,6 +177,13 @@ async function _decompressJavaRelease(
     destination: unpackPath
   });
   return result;
+}
+async function _getInstallationsByPath(): Promise<any[]> {
+  const defaultJavaPath = path.join(defaultPaths.unpackPath);
+  if (await FileUtils.pathExists(defaultJavaPath)){
+    return [];
+  }
+  return [];
 }
 export const JavaInfoService = {
   getInstallableVersions: asyncHandler<JavaVersionsInfo,any>(_getJavaInstallableVersions),

@@ -1,6 +1,7 @@
-import { env } from './env.js';
-import { JavaInfoService,type JavaRelease } from '../services/java-info.service.js';
-import { taskManager, defaultPaths } from '../services/taskInstance.js';
+import { env } from './platforms/env.js';
+import { JavaInfoService,type JavaRelease } from './services/java-info.service.js';
+import { taskManager, defaultPaths } from './services/taskInstance.js';
+import { scanJavaInstallations,findJavaVersion } from './services/java-installations.js';
 import path from 'path';
 const ARCHFILE_NAME = (release: JavaRelease): string => {
   const { featureVersion, arch, os } = release;
@@ -38,4 +39,17 @@ async function main() {
     console.error('Error al obtener la información de Java:', error);
   }
 }
-main().catch(console.error);
+async function example() {
+    const javainstallations = await scanJavaInstallations(defaultPaths.unpackPath);
+    console.log('Java Installations:', javainstallations);
+    const javaVersion = 21; // Ejemplo de versión, puedes cambiarlo
+    const findVersion = await findJavaVersion(defaultPaths.unpackPath, javaVersion);
+    if (findVersion) {
+      console.log(`Java ${javaVersion} encontrado:`, findVersion);
+    }
+    else {
+      console.log(`Java ${javaVersion} no encontrado.`);
+    }
+}
+example().catch(console.error);
+//main().catch(console.error);

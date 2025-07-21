@@ -1,6 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-
+import {
+  createSuccessResponse,
+  createErrorResponse,
+  isSuccess
+} from './validator.js';
 // --- Constantes ---
 export const ALLOWED_EXTENSIONS = [
   ".txt",
@@ -38,48 +42,6 @@ export type ServiceResponse<T> =
   | { success: true; data: T,[key: string]: any }
   | { success: false; error: string, data: T };
 
-/**
- * Crea una respuesta de éxito estandarizada.
- * @param data - Los datos a devolver en caso de éxito.
- */
-export const createSuccessResponse = <T>(data: T): ServiceResponse<T> => ({
-  success: true,
-  data,
-});
-
-/**
- * Crea una respuesta de error estandarizada.
- * @param error - El mensaje de error.
- */
-export const createErrorResponse = (error: string,data:any = false): ServiceResponse<any> => ({
-  success: false,
-  data,
-  error,
-});
-
-/**
- * Verifica si el resultado de una operación fue exitoso.
- * Funciona tanto con el objeto ServiceResponse como con un simple booleano.
- * Es un "type guard" de TypeScript.
- *
- * @example
- * const result = await FileUtils.readFile(...);
- * if (isSuccess(result)) {
- *   // TypeScript sabe que result.data existe aquí
- *   console.log(result.data);
- * } else {
- *   // TypeScript sabe que result.error existe aquí
- *   console.error(result.error);
- * }
- */
-export function isSuccess<T>(
-  result: ServiceResponse<T> | boolean
-): result is (ServiceResponse<T> & { success: true }) | true {
-  if (typeof result === "boolean") {
-    return result;
-  }
-  return result.success;
-}
 
 /**
  * Wrapper para funciones asíncronas que estandariza el manejo de errores y la respuesta.
