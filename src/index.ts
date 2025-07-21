@@ -1,8 +1,10 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import JavaRoutes from './routes/JavaGet.js'
+import JavaRouter from './routes/JavaGet.js'
+import JavaMainRouter from './routes/Javamanager.js'
 const app = new Hono();
-app.route('/java', JavaRoutes);
+app.route('/java', JavaRouter);
+app.route('/java', JavaMainRouter);
 app.get('/', (c) => {
   return c.text('Hello Hono!')
 })
