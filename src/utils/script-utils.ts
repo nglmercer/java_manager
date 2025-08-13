@@ -611,6 +611,8 @@ export const PlatformScriptUtils = {
       
       const result = await ScriptUtils.generateBatchScript(batchConfig);
       if (result.success) {
+        // Ensure directory exists before writing file
+        await fs.mkdir(path.dirname(scriptPath), { recursive: true });
         await fs.writeFile(scriptPath, result.data, 'utf8');
       }
     } else {
@@ -625,6 +627,8 @@ export const PlatformScriptUtils = {
       
       const result = await ScriptUtils.generateShellScript(shellConfig, 'bash');
       if (result.success) {
+        // Ensure directory exists before writing file
+        await fs.mkdir(path.dirname(scriptPath), { recursive: true });
         await fs.writeFile(scriptPath, result.data, 'utf8');
         // Establecer permisos de ejecución en sistemas Unix
         try {

@@ -21,6 +21,7 @@ import { FileUtils } from '../src/utils/file.utils.js';
 /**
  * Ejemplo 1: Crear un script básico de inicio de servidor Java
  */
+const folderTemp = path.join(process.cwd(),'temp')
 export async function createBasicJavaServerScript() {
   console.log('=== Ejemplo 1: Script básico de servidor Java ===');
   
@@ -31,7 +32,7 @@ export async function createBasicJavaServerScript() {
       javaPath: 'C:\\Program Files\\Java\\jdk-17\\bin\\java.exe',
       jarFile: 'server.jar',
       jvmArgs: ['-Xms2G', '-Xmx4G', '-XX:+UseG1GC'],
-      workingDirectory: './servers/minecraft',
+      workingDirectory: path.join(folderTemp, 'servers', 'minecraft'),
       description: 'Script de inicio para servidor Minecraft'
     };
     
@@ -94,9 +95,9 @@ export async function createServerPropertiesFile() {
     
     if (result.success) {
       // Guardar el archivo
-      const filePath = path.join(process.cwd(), 'server.properties');
+      const filePath = path.join(folderTemp, 'server.properties');
       const writeResult = await FileUtils.writeFile(
-        process.cwd(),
+        folderTemp,
         '',
         'server.properties',
         result.data
@@ -222,9 +223,9 @@ export async function createAdvancedShellScript() {
     
     if (result.success) {
       // Guardar el script
-      const scriptPath = path.join(process.cwd(), 'advanced-server.sh');
+      const scriptPath = path.join(folderTemp, 'advanced-server.sh');
       const writeResult = await FileUtils.writeFile(
-        process.cwd(),
+        folderTemp,
         '',
         'advanced-server.sh',
         result.data
@@ -366,9 +367,9 @@ export async function useScriptTemplates() {
     });
     
     // Guardar script generado desde template
-    const templateScriptPath = path.join(process.cwd(), 'template-server.sh');
+    const templateScriptPath = path.join(folderTemp, 'template-server.sh');
     const writeResult = await FileUtils.writeFile(
-      process.cwd(),
+      folderTemp,
       '',
       'template-server.sh',
       scriptContent
