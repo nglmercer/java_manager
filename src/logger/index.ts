@@ -14,7 +14,7 @@ export { createConfig, ENVIRONMENT_CONFIGS } from './config.js';
 // Logger por defecto
 export {
   Logger,
-  LogLevel,
+  type LogLevel,
   getLogger,
   type LoggerConfig,
   type LogEntry,
