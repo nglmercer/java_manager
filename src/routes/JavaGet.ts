@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { JavaInfoService,type JavaRelease } from '../services/java-info.service.js';
-import { taskManager, defaultPaths } from '../services/taskInstance.js';
+import { taskManager } from '../services/taskInstance.js';
+import { defaultPaths } from '../config.js';
 import { scanJavaInstallations,findJavaVersion } from '../services/java-installations.js';
 import path from 'path';
 const ARCHFILE_NAME = (release: JavaRelease): string => {

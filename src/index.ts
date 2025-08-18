@@ -5,6 +5,8 @@ import JavaRouter from './routes/JavaGet.js'
 import JavaMainRouter from './routes/Javamanager.js'
 import coresRouter from './routes/mc/cores.js'
 import { generationRouter } from './routes/mc/generate.js'
+import { ResourceRouter } from './routes/Resource.js'
+import {serverInfoRouter} from './routes/mc/servers.js'
 
 const app = new Hono();
 app.use(cors({
@@ -13,8 +15,10 @@ app.use(cors({
 
 app.route('/java', JavaRouter);
 app.route('/java', JavaMainRouter);
-app.route('/mc/cores', coresRouter);
 app.route('/', generationRouter);
+app.route('/hardware', ResourceRouter);
+app.route('/mc/cores', coresRouter);
+app.route('/mc/servers',serverInfoRouter)
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')

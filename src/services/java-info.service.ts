@@ -2,7 +2,8 @@
 import path from 'node:path';
 import { env } from '../platforms/env.js';
 import { CommandUtils } from '../utils/command-utils.js';
-import { taskManager, defaultPaths } from '../services/taskInstance.js';
+import { defaultPaths } from '../config.js';
+import { taskManager } from '../services/taskInstance.js';
 import { FileUtils, asyncHandler } from '../utils/file.utils.js';
 import { findJavaVersion, type InstalledJavaVersion } from './java-installations.js';
 import {
