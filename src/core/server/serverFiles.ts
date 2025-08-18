@@ -4,6 +4,10 @@ import { JSONFileAdapter } from "json-obj-manager/node";
 import path from "path";
 import fs from 'fs';
 import { ServerMapper } from './ServerMapper.js';
+import { serverManager } from '../mc/ServerManager.js';
+
+//const { serverManager } = require('../mc/ServerManager.js');
+
 import type{
   MinecraftServerInfo,
   ServerFilterOptions,
@@ -46,9 +50,6 @@ export class MinecraftServerManager {
    */
   async initialize(): Promise<void> {
     try {
-        const initdata = await this.dataStore.getAll();
-
-        console.log("initdata",initdata)
       // Crear estructura inicial si no existe
       if (!await this.dataStore.load('servers')) {
         await this.dataStore.save('servers', []);
@@ -117,6 +118,13 @@ export class MinecraftServerManager {
   async getServerById(serverId: string): Promise<MinecraftServerInfo | null> {
     const servers = await this.getAllServers();
     return servers.find(s => s.id === serverId) || null;
+  }
+  /**
+   * Obtiene un servidor por nombre
+   */
+  async getServerByName(serverName: string): Promise<MinecraftServerInfo | null> {
+    const servers = await this.getAllServers();
+    return servers.find(s => s.name === serverName) || null;
   }
 
   /**
@@ -265,6 +273,118 @@ export class MinecraftServerManager {
   }
   getServerMapper(){
     return this.serverMapper;
+  }
+
+  // Métodos de control de servidores usando ServerManager
+  private serverManager: any;
+
+  private getServerManager(): typeof serverManager {
+    if (!this.serverManager) {
+      // Importación dinámica para evitar dependencias circulares
+      this.serverManager = serverManager;
+    }
+    return this.serverManager;
+  }
+
+  /**
+   * Inicia un servidor
+   */
+  startServer(serverName: string): boolean {
+    const manager = this.getServerManager();
+    return manager.startServer(serverName);
+  }
+
+  /**
+   * Detiene un servidor
+   */
+  stopServer(serverName: string): boolean {
+    const manager = this.getServerManager();
+    return manager.stopServer(serverName);
+  }
+
+  /**
+   * Reinicia un servidor
+   */
+  restartServer(serverName: string): boolean {
+    const manager = this.getServerManager();
+    return manager.restartServer(serverName);
+  }
+
+  /**
+   * Termina forzosamente un servidor
+   */
+  killServer(serverName: string): boolean {
+    const manager = this.getServerManager();
+    return manager.killServer(serverName);
+  }
+
+  /**
+   * Envía un comando a un servidor
+   */
+  sendCommand(serverName: string, command: string): boolean {
+    const manager = this.getServerManager();
+    return manager.sendCommand(serverName, command);
+  }
+
+  /**
+   * Obtiene los logs de un servidor
+   */
+  getServerLogs(serverName: string, lines?: number): string[] {
+    const manager = this.getServerManager();
+    return manager.getServerLogs(serverName, lines);
+  }
+
+  /**
+   * Limpia los logs de un servidor
+   */
+  clearServerLogs(serverName: string): boolean {
+    const manager = this.getServerManager();
+    return manager.clearServerLogs(serverName);
+  }
+
+  /**
+   * Obtiene las métricas de un servidor
+   */
+  getServerMetrics(serverName: string): any {
+    const manager = this.getServerManager();
+    return manager.getServerMetrics(serverName);
+  }
+  getServerStatus(serverName: string): any {
+    const manager = this.getServerManager();
+    return manager.getServerStatus(serverName);
+  }
+  /**
+   * Agrega un servidor al manager de control
+   */
+  async addServerToManager(serverInfo: MinecraftServerInfo): Promise<boolean> {
+    try {
+      const manager = this.getServerManager();
+      manager.addServer(serverInfo.name, serverInfo.path);
+      return true;
+    } catch (error) {
+      console.error('Error agregando servidor al manager:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Inicializa todos los servidores encontrados en el manager de control
+   */
+  async initializeServersInManager(): Promise<void> {
+    try {
+      const servers = await this.getAllServers();
+      const manager = this.getServerManager();
+      
+      for (const server of servers) {
+        if (server.isValid) {
+          manager.addServer(server.name, server.path);
+        }
+      }
+      
+      console.log(`${servers.filter(s => s.isValid).length} servidores agregados al manager de control`);
+    } catch (error) {
+      console.error('Error inicializando servidores en el manager:', error);
+    }
   }
 }
 

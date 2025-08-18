@@ -42,10 +42,7 @@ serverInfoRouter.get('/', async (c) => {
   try {
     // Asegurar que el sistema esté inicializado
     await ensureInitialized();
-    
-    // Obtener servidores actualizados
-    const servers = await manager.getAllServers();
-    
+        
     console.log('No hay servidores almacenados, escaneando...');
     await manager.scanAndMapServers();
     const updatedServers = await manager.getAllServers();

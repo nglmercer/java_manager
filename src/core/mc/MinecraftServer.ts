@@ -13,6 +13,8 @@ export class MinecraftServer {
   private uptime = 0;
   private cpuUsage = 0;
   private memoryUsage = 0;
+  private logs: string[] = [];
+  private maxLogLines = 1000; // Máximo número de líneas de log a mantener en memoria
 
   constructor(
     public readonly serverName: string,
@@ -92,6 +94,16 @@ export class MinecraftServer {
 
   private handleOutput(data: string): void {
     if (typeof data !== 'string') return;
+
+    // Agregar al log interno
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${data.trim()}`;
+    this.logs.push(logEntry);
+    
+    // Mantener solo las últimas maxLogLines líneas
+    if (this.logs.length > this.maxLogLines) {
+      this.logs = this.logs.slice(-this.maxLogLines);
+    }
 
     emitter.emit('server:output', this.serverName, data);
 
@@ -187,5 +199,30 @@ export class MinecraftServer {
 
   getStatus(): ServerStatus {
     return this.status;
+  }
+
+  getLogs(lines?: number): string[] {
+    if (lines && lines > 0) {
+      return this.logs.slice(-lines);
+    }
+    return [...this.logs];
+  }
+
+  clearLogs(): void {
+    this.logs = [];
+  }
+
+  restart(): void {
+    if (this.status === 'running') {
+      this.stop();
+      // Esperar un momento antes de reiniciar
+      setTimeout(() => {
+        if (this.status === 'stopped') {
+          this.start();
+        }
+      }, 2000);
+    } else {
+      this.start();
+    }
   }
 }

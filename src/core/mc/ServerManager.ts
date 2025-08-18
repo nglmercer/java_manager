@@ -99,6 +99,27 @@ export class ServerManager {
   getServerCount(): number {
     return this.servers.size;
   }
+
+  restartServer(serverName: string): boolean {
+    const server = this.servers.get(serverName);
+    if (!server) return false;
+    
+    server.restart();
+    return true;
+  }
+
+  getServerLogs(serverName: string, lines?: number): string[] {
+    const server = this.servers.get(serverName);
+    return server ? server.getLogs(lines) : [];
+  }
+
+  clearServerLogs(serverName: string): boolean {
+    const server = this.servers.get(serverName);
+    if (!server) return false;
+    
+    server.clearLogs();
+    return true;
+  }
 }
 
 export const serverManager = new ServerManager();
