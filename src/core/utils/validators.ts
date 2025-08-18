@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import type{ FileInfo, FileValidationCriteria, ValidationResult } from './types.js';
+import type{ FileInfo, FileValidationCriteria, ValidationResult } from '../types/mcserver.js';
 
 /**
  * Clase para validar archivos y carpetas de servidores de Minecraft

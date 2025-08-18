@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import treekill from 'tree-kill';
 import { emitter } from '../../Emitter.js';
-import type{ ServerConfig, ServerStatus, ServerMetrics } from './types.js';
+import type{ ServerConfig, ServerStatus, ServerMetrics } from '../types/mcserverconfig.js';
 
 export class MinecraftServer {
   private process: ChildProcess | null = null;

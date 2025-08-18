@@ -11,7 +11,7 @@ import { minecraftServerManager } from '../src/core/server/serverFiles.js';
 import type{
   MinecraftServerInfo,
   ServerFilterOptions
-} from '../src/core/server/types.js';
+} from '../src/core/types/mcserver.js';
 
 /**
  * Función principal de demostración

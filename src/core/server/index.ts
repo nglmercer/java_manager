@@ -20,10 +20,10 @@ export type{
   ServerFilterOptions,
   ServerMapperConfig,
   ServerMappingResult
-} from './types.js';
+} from '../types/mcserver.js';
 
 // Exportar clases principales
-export { ServerValidator } from './validators.js';
+export { ServerValidator } from '../utils/validators.js';
 export { ServerMapper } from './ServerMapper.js';
 export { MinecraftServerManager, minecraftServerManager, serverMCStore } from './serverFiles.js';
 const minecraftServerManager = new MinecraftServerManager();

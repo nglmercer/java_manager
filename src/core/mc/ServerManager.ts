@@ -1,6 +1,6 @@
 import { emitter } from '../../Emitter.js';
 import { MinecraftServer } from './MinecraftServer.js';
-import type{ ServerConfig, ServerMetrics } from './types.js';
+import type{ ServerConfig, ServerMetrics } from '../types/mcserverconfig.js';
 
 export class ServerManager {
   private servers = new Map<string, MinecraftServer>();

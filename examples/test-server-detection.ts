@@ -4,7 +4,7 @@
 
 import { MinecraftServerManager } from '../src/core/server/serverFiles.js';
 import { defaultPaths } from '../src/config.js';
-import type { ServerMapperConfig } from '../src/core/server/types.js';
+import type { ServerMapperConfig } from '../src/core/types/mcserver.js';
 
 async function testServerDetection() {
   console.log('=== Prueba de Detección de Servidores ===\n');

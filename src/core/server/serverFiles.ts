@@ -9,7 +9,7 @@ import type{
   ServerFilterOptions,
   ServerMapperConfig,
   FileValidationCriteria
-} from './types.js';
+} from '../types/mcserver.js';
 
 // Configuración del almacenamiento de datos
 const serverMCStore = new DataStorage<any>(

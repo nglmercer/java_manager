@@ -8,8 +8,8 @@ import type{
   ServerMappingResult,
   FileValidationCriteria,
   ServerType
-} from './types.js';
-import { ServerValidator } from './validators.js';
+} from '../types/mcserver.js';
+import { ServerValidator } from '../utils/validators.js';
 
 /**
  * Clase principal para mapear, enriquecer y validar servidores de Minecraft
