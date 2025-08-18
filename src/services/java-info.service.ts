@@ -4,6 +4,7 @@ import { env } from '../platforms/env.js';
 import { CommandUtils } from '../utils/command-utils.js';
 import { taskManager, defaultPaths } from '../services/taskInstance.js';
 import { FileUtils, asyncHandler } from '../utils/file.utils.js';
+import { findJavaVersion, type InstalledJavaVersion } from './java-installations.js';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -26,6 +27,8 @@ export interface JavaVersionsInfo {
   available: number[];         // e.g. [8, 11, 17, 21, 22]
   lts:       number[];         // e.g. [8, 11, 17, 21]
   releases:  JavaRelease[];    // concrete binaries for current platform/arch
+  installedInfo: InstalledJavaVersion[];  // installed Java versions found locally
+  installed: number[];
 }
 
 const ADOPTIUM_ARCH_MAP: Record<string, string | undefined> = {
@@ -136,11 +139,24 @@ async function _getJavaInstallableVersions(): Promise<JavaVersionsInfo> {
       os: os,
     });
   }
+  // Obtener versiones únicas para verificar instalaciones
+  const uniqueVersions = [...new Set([...available_releases, ...releases.map((r) => r.featureVersion)])];
+  
+  // Usar Promise.all para manejar correctamente las promesas asíncronas
+  const installedVersionsPromises = uniqueVersions.map(async (v) => {
+    const javaInfo = await findJavaVersion(defaultPaths.unpackPath, v);
+    return javaInfo || false;
+  });
+  
+  const installedVersionsResults = await Promise.all(installedVersionsPromises);
+  const installedVersions = installedVersionsResults.filter((v) => v !== false);
 
   return {
     available: available_releases,
     lts: available_releases.filter((v) => v <= most_recent_lts),
     releases,
+    installedInfo: installedVersions,
+    installed: installedVersions.map((v) => v.featureVersion),
   };
 }
 async function filterReleases(releases: JavaRelease[], version: number): Promise<JavaRelease| false> {

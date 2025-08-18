@@ -1,7 +1,7 @@
 // fileManager.ts - Gestión de archivos simplificada
 import fs from 'fs';
 import path from 'path';
-import { LoggerConfig } from './types.js';
+import type{ LoggerConfig } from './types.js';
 
 export class LogFileManager {
   private currentLogFile: string | null = null;

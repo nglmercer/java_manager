@@ -1,5 +1,5 @@
 // formatter.ts - Formatters centralizados
-import { LogEntry, LoggerConfig } from './types.js';
+import type{ LogEntry, LoggerConfig } from './types.js';
 
 const COLORS = {
   DEBUG: '\x1b[36m',

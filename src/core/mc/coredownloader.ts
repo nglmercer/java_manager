@@ -196,7 +196,10 @@ const getCoreVersions = async (core: string): Promise<string[] | SpigotVersion[]
             const data = await fetchData(URLS.MAGMA);
             return data || [];
         }
-        case "spigot": return await getSpigotVersions();
+        case "spigot": {
+            const spigotVersions = await getSpigotVersions();
+            return spigotVersions.map((v) => v.version);
+        }
         default: return false;
     }
 };
