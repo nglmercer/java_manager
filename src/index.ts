@@ -8,7 +8,11 @@ import { generationRouter } from './routes/mc/generate.js'
 import { ResourceRouter } from './routes/Resource.js'
 import {serverInfoRouter} from './routes/mc/serverInfo.js'
 import { servermanager } from './routes/mc/servermanager.js'
+import { SocketIOLikeServer, SocketIOLikeSocket, defaultLogger } from 'ws-socketio-adapter';
+import { emitter } from './Emitter.js'
 
+
+const wsServer = new SocketIOLikeServer();
 const app = new Hono();
 app.use(cors({
   origin: '*',
@@ -26,9 +30,21 @@ app.get('/', (c) => {
   return c.text('Hello Hono!')
 })
 
-serve({
+const server = await serve({
   fetch: app.fetch,
   port: 3000
 }, (info) => {
   console.log(`Server is running on http://localhost:${info.port}`)
 })
+wsServer.attach(server);
+wsServer.on('connection', (socket) => {
+  console.log('Nuevo cliente conectado');
+  emitter.onAny((event, ...args) => {
+    if (event.startsWith('server')){
+      console.log("Evento:", event, "Argumentos:", ...args)
+    }
+    socket.emit(event, ...args)
+  
+  })
+});
+

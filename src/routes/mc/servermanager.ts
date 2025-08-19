@@ -115,7 +115,7 @@ servermanager.get('/:server/log', async (c) => {
 });
 
 // Ruta para acciones del servidor
-servermanager.post('/:server/:action', async (c) => {
+servermanager.get('/:server/:action', async (c) => {
   const serverName = c.req.param('server');
   const action = c.req.param('action');
   const validActions = ['start', 'stop', 'restart', 'kill', 'send'];

@@ -214,6 +214,7 @@ const getCoreVersionURL = async (core: string, version: string): Promise<string 
             return versions[version] || false;
         }
         case "externalURL": return await CORES_URL_GEN.getCoreByExternalURL(coreItem.versionsUrl!, version);
+        case "spigot": return await CORES_URL_GEN.getPaperCoreURL("paper", version);
         case "paper": return await CORES_URL_GEN.getPaperCoreURL(coreItem.name, version);
         case "purpur": return `https://api.purpurmc.org/v2/purpur/${version}/latest/download`;
         case "magma": return `https://api.magmafoundation.org/api/v2/${version}/latest/download`;
