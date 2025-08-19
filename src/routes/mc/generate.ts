@@ -6,6 +6,7 @@ import { serverManager } from "../../core/mc/ServerManager.js";
 import { minecraftServerManager } from "../../core/server/serverFiles.js";
 import { findJavaVersion } from "../../services/java-installations.js";
 import { getPlatformInfo } from "../../core/server/serverconfig.js";
+import { PlatformScriptUtils,ScriptUtils,type PropertiesConfig } from "../../utils/script-utils.js";
 import { FileUtils } from "../../utils/file.utils.js";
 import path from "path";
 import fs from "fs/promises";
@@ -26,7 +27,45 @@ interface ServerData {
   coreVersion: string;
   startParameters: string;
 }
-
+export async function createServerPropertiesFile(serverData:ServerData) {
+    const config: PropertiesConfig = {
+      name: 'server-config',
+      description: 'Configuración del servidor Minecraft',
+      properties: {
+        'server-port': serverData.serverPort || '25565',
+        'gamemode': 'survival',
+        'difficulty': 'easy',
+        'allow-nether': true,
+        'spawn-monsters': true,
+        'online-mode': false,
+        'pvp': true,
+        'level-name': 'world',
+        'motd': serverData.serverName || 'A Minecraft Server',
+        'max-players': 20
+      },
+      comments: {
+        'server-port': 'Puerto del servidor',
+        'max-players': 'Número máximo de jugadores',
+        'motd': 'Mensaje del día',
+        'difficulty': 'Dificultad del juego'
+      },
+      sections: {
+        'Configuración de red': {
+          'enable-query': true,
+          'query.port': 25565,
+          'enable-rcon': false
+        },
+        'Configuración de mundo': {
+          'level-name': 'world',
+          'level-seed': '',
+          'generate-structures': true,
+          'spawn-monsters': true
+        }
+      }
+    };
+    const result = await ScriptUtils.generatePropertiesFile(config);
+    return result
+}
 // Ruta POST para manejar la generación de servidores
 generationRouter.post('/newserver', async (c) => {
   try {
@@ -79,6 +118,142 @@ generationRouter.post('/newserver', async (c) => {
       serverData,
       filesCount: Object.keys(uploadedFiles).length
     });
+
+    // Validar que Java esté instalado
+    const javaInfo = await findJavaVersion(defaultPaths.unpackPath, Number(serverData.javaVersion));
+    if (!javaInfo) {
+      return c.json({ 
+        error: `Java version ${serverData.javaVersion} is not installed. Please install it first.` 
+      }, 400);
+    }
+
+    // Crear directorio del servidor
+    const serverPath = path.join(defaultPaths.serversPath, serverData.serverName);
+    
+    try {
+      await fs.mkdir(serverPath, { recursive: true });
+    } catch (error) {
+      logger.error('Error creating server directory:', error);
+      return c.json({ error: 'Failed to create server directory' }, 500);
+    }
+
+    let coreFilePath: string;
+    
+    // Manejar descarga de core o archivo subido
+    if (Object.keys(uploadedFiles).length > 0 && uploadedFiles.file) {
+      // Usar archivo subido
+      const uploadedFile = uploadedFiles.file;
+      coreFilePath = path.join(serverPath, uploadedFile.name);
+      
+      try {
+        const arrayBuffer = await uploadedFile.arrayBuffer();
+        await fs.writeFile(coreFilePath, Buffer.from(arrayBuffer));
+        logger.info(`Core file uploaded: ${uploadedFile.name}`);
+      } catch (error) {
+        logger.error('Error saving uploaded core file:', error);
+        return c.json({ error: 'Failed to save uploaded core file' }, 500);
+      }
+    } else {
+      // Descargar core desde URL
+      if (!serverData.coreVersion) {
+        return c.json({ 
+          error: 'Core version is required when not uploading a file' 
+        }, 400);
+      }
+      
+      const coreUrl = await getCoreVersionURL(serverData.coreName, serverData.coreVersion);
+      if (!coreUrl) {
+        return c.json({ 
+          error: `Failed to get download URL for ${serverData.coreName} version ${serverData.coreVersion}` 
+        }, 400);
+      }
+      
+      const coreFileName = `${serverData.coreName}-${serverData.coreVersion}.jar`;
+      coreFilePath = path.join(serverPath, coreFileName);
+      
+      try {
+        const response = await fetch(coreUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const fileStream = createWriteStream(coreFilePath);
+        await pipeline(response.body!, fileStream);
+        logger.info(`Core downloaded: ${coreFileName}`);
+      } catch (error) {
+        logger.error('Error downloading core:', error);
+        return c.json({ error: 'Failed to download server core' }, 500);
+      }
+    }
+
+    // Generar script de inicio usando PlatformScriptUtils
+    const javaPath = javaInfo.javaExecutable;
+    const coreFileName = path.basename(coreFilePath);
+    
+    // Construir argumentos JVM correctamente
+    const jvmArgs = [
+      `-Xmx${serverData.Ramsize}G`,
+      `-Xms${serverData.Ramsize}G`
+    ];
+    
+    // Agregar optiflags si existen y no están vacíos
+    if (serverData.optiflags && serverData.optiflags.trim() !== '') {
+      jvmArgs.push(serverData.optiflags.trim());
+    }
+
+    const newStartCommand = await PlatformScriptUtils.createStartupScript({
+      name: 'start',
+      javaPath,
+      jarFile: coreFileName,
+      jvmArgs,
+      workingDirectory: serverPath,
+      description: `Minecraft Server ${serverData.serverName}`
+    });
+
+    // Crear server.properties
+    const serverProperties = await createServerPropertiesFile(serverData);
+    FileUtils.writeFile(serverPath,'', 'server.properties', serverProperties.data);
+
+    // Crear eula.txt
+    const eulaContent = `#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\neula=true`;
+    FileUtils.writeFile(serverPath,'', 'eula.txt', eulaContent);
+
+    // Registrar servidor en el manager
+    try {
+      const server = serverManager.addServer(serverData.serverName, serverPath, {});
+      
+      // También registrar en el sistema de archivos
+      await minecraftServerManager.initialize();
+      await minecraftServerManager.scanAndMapServers();
+      
+      logger.info(`Server '${serverData.serverName}' registered successfully`);
+    } catch (error) {
+      logger.error('Error registering server:', error);
+      // No fallar aquí, el servidor se creó correctamente
+    }
+    
+    // Respuesta exitosa
+    return c.json({
+      success: true,
+      message: `Server '${serverData.serverName}' created successfully`,
+      data: {
+        serverName: serverData.serverName,
+        serverPath,
+        coreFile: path.basename(coreFilePath),
+        javaVersion: serverData.javaVersion,
+        javaPath,
+        startScript: newStartCommand.data.scriptPath,
+        serverPort: serverData.serverPort || '25565'
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error processing server generation request:', error);
+    return c.json({ 
+      error: 'Internal server error while processing request' 
+    }, 500);
+  }
+});
 
 // Ruta POST específica para crear servidor con archivo subido
 generationRouter.post('/newserverbyfile', async (c) => {
@@ -158,59 +333,36 @@ generationRouter.post('/newserverbyfile', async (c) => {
     }
 
     // Generar script de inicio
-    const platformInfo = getPlatformInfo();
-    const javaPath = path.join(javaInfo.installPath, 'bin', platformInfo.isWindows ? 'java.exe' : 'java');
+    const javaPath = javaInfo.javaExecutable;
     const coreFileName = path.basename(coreFilePath);
     
-    const startCommand = `"${javaPath}" -Xmx${serverData.Ramsize} -Xms${serverData.Ramsize} ${serverData.optiflags || ''} -jar "${coreFileName}" nogui`;
+    // Construir argumentos JVM correctamente
+    const jvmArgs = [
+      `-Xmx${serverData.Ramsize}G`,
+      `-Xms${serverData.Ramsize}G`
+    ];
     
-    const startScriptContent = platformInfo.isWindows 
-      ? `@echo off\necho Starting Minecraft Server...\n${startCommand}\npause`
-      : `#!/bin/bash\necho "Starting Minecraft Server..."\n${startCommand}`;
-    
-    const startScriptPath = path.join(serverPath, platformInfo.startScript);
-    
-    try {
-      await fs.writeFile(startScriptPath, startScriptContent);
-      if (!platformInfo.isWindows) {
-        await fs.chmod(startScriptPath, 0o755);
-      }
-      logger.info(`Start script created: ${platformInfo.startScript}`);
-    } catch (error) {
-      logger.error('Error creating start script:', error);
-      return c.json({ error: 'Failed to create start script' }, 500);
+    // Agregar optiflags si existen y no están vacíos
+    if (serverData.optiflags && serverData.optiflags.trim() !== '') {
+      jvmArgs.push(serverData.optiflags.trim());
     }
 
-    // Crear server.properties
-    const serverProperties = [
-      `server-port=${serverData.serverPort || '25565'}`,
-      'gamemode=survival',
-      'difficulty=easy',
-      'allow-nether=true',
-      'spawn-monsters=true',
-      'online-mode=true',
-      'pvp=true',
-      'level-name=world',
-      'motd=A Minecraft Server',
-      'max-players=20'
-    ].join('\n');
+    const newStartCommand = await PlatformScriptUtils.createStartupScript({
+      name: 'start',
+      javaPath,
+      jarFile: coreFileName,
+      jvmArgs,
+      workingDirectory: serverPath,
+      description: `Minecraft Server ${serverData.serverName}`
+    });
     
-    try {
-      await fs.writeFile(path.join(serverPath, 'server.properties'), serverProperties);
-      logger.info('server.properties created');
-    } catch (error) {
-      logger.error('Error creating server.properties:', error);
-    }
+    // Crear server.properties
+    const serverProperties = await createServerPropertiesFile(serverData);
+    FileUtils.writeFile(serverPath,'', 'server.properties', serverProperties.data);
 
     // Crear eula.txt
     const eulaContent = `#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\neula=true`;
-    
-    try {
-      await fs.writeFile(path.join(serverPath, 'eula.txt'), eulaContent);
-      logger.info('eula.txt created');
-    } catch (error) {
-      logger.error('Error creating eula.txt:', error);
-    }
+    FileUtils.writeFile(serverPath,'', 'eula.txt', eulaContent);
 
     // Registrar servidor en el manager
     try {
@@ -235,172 +387,13 @@ generationRouter.post('/newserverbyfile', async (c) => {
         coreFileSize: uploadedFile.size,
         javaVersion: serverData.javaVersion,
         javaPath,
-        startScript: platformInfo.startScript,
+        startScript: newStartCommand.data.scriptPath,
         serverPort: serverData.serverPort || '25565'
       }
     });
 
   } catch (error) {
     logger.error('Error processing server creation with file upload:', error);
-    return c.json({ 
-      error: 'Internal server error while processing request' 
-    }, 500);
-  }
-});
-
-    // Validar que Java esté instalado
-    const javaInfo = await findJavaVersion(defaultPaths.unpackPath, Number(serverData.javaVersion));
-    if (!javaInfo) {
-      return c.json({ 
-        error: `Java version ${serverData.javaVersion} is not installed. Please install it first.` 
-      }, 400);
-    }
-
-    // Crear directorio del servidor
-    const serverPath = path.join(defaultPaths.serversPath, serverData.serverName);
-    
-    try {
-      await fs.mkdir(serverPath, { recursive: true });
-    } catch (error) {
-      logger.error('Error creating server directory:', error);
-      return c.json({ error: 'Failed to create server directory' }, 500);
-    }
-
-    let coreFilePath: string;
-    
-    // Manejar descarga de core o archivo subido
-    if (Object.keys(uploadedFiles).length > 0 && uploadedFiles.file) {
-      // Usar archivo subido
-      const uploadedFile = uploadedFiles.file;
-      coreFilePath = path.join(serverPath, uploadedFile.name);
-      
-      try {
-        const arrayBuffer = await uploadedFile.arrayBuffer();
-        await fs.writeFile(coreFilePath, Buffer.from(arrayBuffer));
-        logger.info(`Core file uploaded: ${uploadedFile.name}`);
-      } catch (error) {
-        logger.error('Error saving uploaded core file:', error);
-        return c.json({ error: 'Failed to save uploaded core file' }, 500);
-      }
-    } else {
-      // Descargar core desde URL
-      if (!serverData.coreVersion) {
-        return c.json({ 
-          error: 'Core version is required when not uploading a file' 
-        }, 400);
-      }
-      
-      const coreUrl = await getCoreVersionURL(serverData.coreName, serverData.coreVersion);
-      if (!coreUrl) {
-        return c.json({ 
-          error: `Failed to get download URL for ${serverData.coreName} version ${serverData.coreVersion}` 
-        }, 400);
-      }
-      
-      const coreFileName = `${serverData.coreName}-${serverData.coreVersion}.jar`;
-      coreFilePath = path.join(serverPath, coreFileName);
-      
-      try {
-        const response = await fetch(coreUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const fileStream = createWriteStream(coreFilePath);
-        await pipeline(response.body!, fileStream);
-        logger.info(`Core downloaded: ${coreFileName}`);
-      } catch (error) {
-        logger.error('Error downloading core:', error);
-        return c.json({ error: 'Failed to download server core' }, 500);
-      }
-    }
-
-    // Generar script de inicio
-    const platformInfo = getPlatformInfo();
-    const javaPath = path.join(javaInfo.installPath, 'bin', platformInfo.isWindows ? 'java.exe' : 'java');
-    const coreFileName = path.basename(coreFilePath);
-    
-    const startCommand = `"${javaPath}" -Xmx${serverData.Ramsize} -Xms${serverData.Ramsize} ${serverData.optiflags || ''} -jar "${coreFileName}" nogui`;
-    
-    const startScriptContent = platformInfo.isWindows 
-      ? `@echo off\necho Starting Minecraft Server...\n${startCommand}\npause`
-      : `#!/bin/bash\necho "Starting Minecraft Server..."\n${startCommand}`;
-    
-    const startScriptPath = path.join(serverPath, platformInfo.startScript);
-    
-    try {
-      await fs.writeFile(startScriptPath, startScriptContent);
-      if (!platformInfo.isWindows) {
-        await fs.chmod(startScriptPath, 0o755); // Make executable on Unix systems
-      }
-      logger.info(`Start script created: ${platformInfo.startScript}`);
-    } catch (error) {
-      logger.error('Error creating start script:', error);
-      return c.json({ error: 'Failed to create start script' }, 500);
-    }
-
-    // Crear server.properties
-    const serverProperties = [
-      `server-port=${serverData.serverPort || '25565'}`,
-      'gamemode=survival',
-      'difficulty=easy',
-      'allow-nether=true',
-      'spawn-monsters=true',
-      'online-mode=true',
-      'pvp=true',
-      'level-name=world',
-      'motd=A Minecraft Server',
-      'max-players=20'
-    ].join('\n');
-    
-    try {
-      await fs.writeFile(path.join(serverPath, 'server.properties'), serverProperties);
-      logger.info('server.properties created');
-    } catch (error) {
-      logger.error('Error creating server.properties:', error);
-    }
-
-    // Crear eula.txt
-    const eulaContent = `#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\neula=true`;
-    
-    try {
-      await fs.writeFile(path.join(serverPath, 'eula.txt'), eulaContent);
-      logger.info('eula.txt created');
-    } catch (error) {
-      logger.error('Error creating eula.txt:', error);
-    }
-
-    // Registrar servidor en el manager
-    try {
-      const server = serverManager.addServer(serverData.serverName, serverPath, {});
-      
-      // También registrar en el sistema de archivos
-      await minecraftServerManager.initialize();
-      await minecraftServerManager.scanAndMapServers();
-      
-      logger.info(`Server '${serverData.serverName}' registered successfully`);
-    } catch (error) {
-      logger.error('Error registering server:', error);
-      // No fallar aquí, el servidor se creó correctamente
-    }
-    
-    // Respuesta exitosa
-    return c.json({
-      success: true,
-      message: `Server '${serverData.serverName}' created successfully`,
-      data: {
-        serverName: serverData.serverName,
-        serverPath,
-        coreFile: path.basename(coreFilePath),
-        javaVersion: serverData.javaVersion,
-        javaPath,
-        startScript: platformInfo.startScript,
-        serverPort: serverData.serverPort || '25565'
-      }
-    });
-
-  } catch (error) {
-    logger.error('Error processing server generation request:', error);
     return c.json({ 
       error: 'Internal server error while processing request' 
     }, 500);

@@ -596,7 +596,7 @@ export const PlatformScriptUtils = {
     const scriptPath = path.join(config.workingDirectory || process.cwd(), `${config.name}${scriptExtension}`);
     
     const javaCmd = config.javaPath ? `"${config.javaPath}"` : 'java';
-    const jvmArgsStr = config.jvmArgs ? config.jvmArgs.join(' ') : '-Xms1G -Xmx2G';
+    const jvmArgsStr = config.jvmArgs ? config.jvmArgs.filter(arg => arg.trim() !== '' && arg.trim() !== 'true').join(' ') : '-Xms1G -Xmx2G';
     const jarCmd = `${javaCmd} ${jvmArgsStr} -jar "${config.jarFile}" nogui`;
     
     if (platformInfo.isWindows) {
