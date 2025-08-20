@@ -177,22 +177,51 @@ const _getFolderDetails = async (
   folderName: string
 ): Promise<FileDetails[]> => {
   const folderPath = path.join(basePath, folderName);
+  
+  // Verificar que el directorio base existe
+  try {
+    await fs.access(basePath);
+  } catch (error) {
+    throw new Error(`El directorio base no existe: ${basePath}`);
+  }
+  
+  // Verificar que el directorio objetivo existe
+  try {
+    const stats = await fs.stat(folderPath);
+    if (!stats.isDirectory()) {
+      throw new Error(`La ruta especificada no es un directorio: ${folderPath}`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`El directorio no existe: ${folderPath}`);
+    }
+    throw error;
+  }
+  
   const entries = await fs.readdir(folderPath, { withFileTypes: true });
 
   const details = await Promise.all(
     entries.map(async (entry) => {
       const entryPath = path.join(folderPath, entry.name);
-      const stats = await fs.stat(entryPath);
-      return {
-        name: entry.name,
-        path: path.relative(basePath, entryPath),
-        size: stats.size,
-        modified: stats.mtime.toISOString(),
-        isDirectory: entry.isDirectory(),
-      };
+      try {
+        const stats = await fs.stat(entryPath);
+        return {
+          name: entry.name,
+          path: path.relative(basePath, entryPath),
+          size: stats.size,
+          modified: stats.mtime.toISOString(),
+          isDirectory: entry.isDirectory(),
+        };
+      } catch (error) {
+        // Si hay error al obtener stats de un archivo específico, lo omitimos
+        console.warn(`No se pudo obtener información de: ${entryPath}`);
+        return null;
+      }
     })
   );
-  return details;
+  
+  // Filtrar entradas nulas
+  return details.filter((detail): detail is FileDetails => detail !== null);
 };
 
 interface FileValidityReport {

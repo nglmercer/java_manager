@@ -155,16 +155,30 @@ export class MinecraftServer {
     }
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     if (this.process && this.status === 'running') {
       this.sendCommand(this.config.stopCommand || 'stop');
       this.status = 'stopping';
+      await new Promise((resolve) => {
+        const interval = setInterval(() => {
+          if (this.status === 'stopped') {
+            clearInterval(interval);
+            resolve(true);
+          }
+        }, 2000);
+
+        // Auto-resolve after 30 seconds
+        setTimeout(() => {
+          clearInterval(interval);
+          resolve(true);
+        }, 30000);
+      });
     }
   }
 
-  kill(): void {
+  async kill(): Promise<void> {
     if (this.process?.pid) {
-      treekill(this.process.pid, () => {
+      await treekill(this.process.pid, () => {
         this.status = 'stopped';
         this._startTime = null;
         this.uptime = 0;
@@ -212,16 +226,11 @@ export class MinecraftServer {
     this.logs = [];
   }
 
-  restart(): void {
+  async restart(): Promise<void> {
     if (this.status === 'running') {
-      this.stop();
-      // Esperar un momento antes de reiniciar
-      setTimeout(() => {
-        if (this.status === 'stopped') {
-          this.start();
-        }
-      }, 2000);
-    } else {
+      await this.stop();
+      this.start();
+    } else if (this.status === 'stopped') {
       this.start();
     }
   }
