@@ -14,5 +14,11 @@ ResourceRouter.get('/hardware', async (c) => {
     success: true,
   });
 })
+ResourceRouter.get('/summary', async (c) => {
+  return c.json({
+    data: await getHardwareInfo(),
+    success: true,
+  });
+})
 
 export { ResourceRouter };

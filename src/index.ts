@@ -9,6 +9,7 @@ import { ResourceRouter } from './routes/Resource.js'
 import {serverInfoRouter} from './routes/mc/serverInfo.js'
 import { servermanager } from './routes/mc/servermanager.js'
 import FilemanagerRouter from './routes/files/index.js'
+import extensionsJarRouter from './routes/files/extensionsJar.js'
 import { SocketIOLikeServer, SocketIOLikeSocket, defaultLogger } from 'ws-socketio-adapter';
 import { emitter } from './Emitter.js'
 
@@ -27,6 +28,7 @@ app.route('/mc/cores', coresRouter);
 app.route('/mc/servers',serverInfoRouter);
 app.route('/mc/servermanager', servermanager);
 app.route('/files', FilemanagerRouter);
+app.route('/extensions', extensionsJarRouter);
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')
