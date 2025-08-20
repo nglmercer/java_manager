@@ -4,6 +4,10 @@ import { FileUtils } from "../../utils/file.utils.js";
 import { defaultPaths } from "../../config.js";
 import { PathUtils } from "../../utils/path-utils.js";
 import fs from "node:fs/promises";
+import { createReadStream } from 'fs';
+import { stat } from 'fs/promises';
+import { extname } from 'path';
+import { stream } from 'hono/streaming';
 import {BackupsRouter} from "./backups.js";
 
 const FilemanagerRouter = new Hono();
@@ -396,6 +400,137 @@ FilemanagerRouter.put('/rename', async (c) => {
     return c.json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Error al renombrar archivo' 
+    }, 500);
+  }
+});
+
+// GET /download/:serverName/* - Download any file from servers directory
+FilemanagerRouter.get('/download/:serverName/*', async (c) => {
+  try {
+    const serverName = c.req.param('serverName');
+    const filePath = c.req.param('*') || c.req.path.split(`/download/${serverName}/`)[1];
+    
+    if (!filePath) {
+      return c.json({ success: false, error: 'Ruta de archivo requerida' }, 400);
+    }
+    
+    // Validar el nombre del servidor
+    const serverValidation = validatePath(serverName);
+    if (!serverValidation.isValid) {
+      return c.json({ 
+        success: false, 
+        error: `Nombre de servidor inválido: ${serverValidation.errors.join(', ')}` 
+      }, 400);
+    }
+    
+    // Validar la ruta del archivo
+    const fileValidation = validatePath(filePath);
+    if (!fileValidation.isValid) {
+      return c.json({ 
+        success: false, 
+        error: `Ruta de archivo inválida: ${fileValidation.errors.join(', ')}` 
+      }, 400);
+    }
+    
+    // Construir la ruta completa: serverName/filePath usando utilidades seguras
+    const fullRelativePath = path.join(serverValidation.normalizedPath, fileValidation.normalizedPath);
+    const safePath = createSafePath(fullRelativePath);
+    
+    // Verificar que el archivo existe antes de intentar descargarlo
+    if (!(await pathExists(safePath))) {
+      return c.json({ 
+        success: false, 
+        error: `El archivo no existe: ${fullRelativePath}` 
+      }, 404);
+    }
+    
+    // Verificar que es un archivo y no un directorio
+    if (await isDirectory(safePath)) {
+      return c.json({ 
+        success: false, 
+        error: `La ruta especificada es un directorio, no un archivo: ${fullRelativePath}` 
+      }, 400);
+    }
+    
+    // Obtener estadísticas del archivo
+    try {
+      const fileStats = await stat(safePath);
+      
+      // Determinar el tipo de contenido basado en la extensión del archivo
+      const ext = extname(safePath).toLowerCase();
+      let contentType = 'application/octet-stream';
+      
+      // Mapear extensiones comunes a tipos MIME
+      const mimeTypes: { [key: string]: string } = {
+        '.txt': 'text/plain',
+        '.json': 'application/json',
+        '.xml': 'application/xml',
+        '.html': 'text/html',
+        '.css': 'text/css',
+        '.js': 'application/javascript',
+        '.ts': 'application/typescript',
+        '.md': 'text/markdown',
+        '.pdf': 'application/pdf',
+        '.zip': 'application/zip',
+        '.tar': 'application/x-tar',
+        '.gz': 'application/gzip',
+        '.jar': 'application/java-archive',
+        '.properties': 'text/plain',
+        '.yml': 'text/yaml',
+        '.yaml': 'text/yaml',
+        '.log': 'text/plain'
+      };
+      
+      if (mimeTypes[ext]) {
+        contentType = mimeTypes[ext];
+      }
+      
+      // Obtener el nombre del archivo para la descarga
+      const fileName = path.basename(safePath);
+      
+      // Configurar headers para la descarga del archivo
+      c.header('Content-Disposition', `attachment; filename="${fileName}"`);
+      c.header('Content-Type', contentType);
+      c.header('Content-Length', fileStats.size.toString());
+      c.header('Cache-Control', 'no-cache');
+      
+      // Crear y retornar el stream del archivo usando el helper de streaming de Hono
+      return stream(c, async (stream) => {
+        const fileStream = createReadStream(safePath);
+        
+        // Convertir Node.js ReadStream a Web API ReadableStream
+        const webStream = new ReadableStream({
+          start(controller) {
+            fileStream.on('data', (chunk: string | Buffer<ArrayBufferLike>) => {
+              controller.enqueue(Buffer.isBuffer(chunk) ? new Uint8Array(chunk) : new TextEncoder().encode(chunk));
+            });
+            
+            fileStream.on('end', () => {
+              controller.close();
+            });
+            
+            fileStream.on('error', (error) => {
+              controller.error(error);
+            });
+          },
+          
+          cancel() {
+            fileStream.destroy();
+          }
+        });
+        
+        await stream.pipe(webStream);
+      });
+    } catch (fileError) {
+      return c.json({ 
+        success: false, 
+        error: 'Archivo no encontrado o inaccesible' 
+      }, 404);
+    }
+  } catch (error) {
+    return c.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Error al descargar archivo' 
     }, 500);
   }
 });
