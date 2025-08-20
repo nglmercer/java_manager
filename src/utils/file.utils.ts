@@ -68,10 +68,21 @@ export function asyncHandler<T, A extends any[]>(
 // --- Lógica Interna (Implementación Real) ---
 
 /** Valida si una extensión es permitida. */
-function _isExtensionAllowed(filePath: string): boolean {
-  const ext = path.extname(filePath).toLowerCase();
-  if (!ext) return false; // Archivos sin extensión no son permitidos por defecto
-  return ALLOWED_EXTENSIONS.includes(ext);
+async function _isExtensionAllowed(filePath: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(filePath);
+    // If it's a directory, allow it
+    if (stats.isDirectory()) return true;
+    
+    const ext = path.extname(filePath).toLowerCase();
+    if (!ext) return false; // Files without extension are not allowed by default
+    return ALLOWED_EXTENSIONS.includes(ext);
+  } catch (error) {
+    // If file doesn't exist, just check the extension
+    const ext = path.extname(filePath).toLowerCase();
+    if (!ext) return false;
+    return ALLOWED_EXTENSIONS.includes(ext);
+  }
 }
 
 const _createFile = async (

@@ -92,7 +92,8 @@ FilemanagerRouter.get('/read-file-by-path/*', async (c) => {
     }
     
     // Construir ruta segura y verificar que existe
-    const safePath = createSafePath(fileValidation.normalizedPath);
+    const safePath = createSafePath(fileValidation.normalizedPath,defaultPaths.serversPath);
+
     if (!(await pathExists(safePath))) {
       return c.json({ 
         success: false, 
@@ -269,7 +270,7 @@ FilemanagerRouter.delete('/deleteFile/:serverName/*', async (c) => {
     
     // Construir la ruta completa: serverName/filePath usando utilidades seguras
     const fullRelativePath = path.join(serverValidation.normalizedPath, fileValidation.normalizedPath);
-    const safePath = createSafePath(fullRelativePath);
+    const safePath = createSafePath(fullRelativePath,defaultPaths.serversPath);
     
     // Verificar que el archivo/directorio existe antes de intentar eliminarlo
     if (!(await pathExists(safePath))) {
@@ -329,7 +330,7 @@ FilemanagerRouter.post('/create-folder', async (c) => {
       }, 500);
     }
     
-    const safePath = createSafePath(dirValidation.normalizedPath);
+    const safePath = createSafePath(dirValidation.normalizedPath,defaultPaths.serversPath);
     
     // Verificar si el directorio ya existe
     if (await pathExists(safePath)) {
@@ -369,7 +370,7 @@ FilemanagerRouter.put('/rename', async (c) => {
     
     // Validar y normalizar las rutas usando utilidades seguras
     const fullPath = path.join(server, filePath);
-    const safePath = createSafePath(fullPath);
+    const safePath = createSafePath(fullPath,defaultPaths.serversPath);
     
     // Extraer el directorio y el nombre del archivo actual desde la ruta segura
     const relativePath = path.relative(defaultPaths.serversPath, safePath);
@@ -434,7 +435,7 @@ FilemanagerRouter.get('/download/:serverName/*', async (c) => {
     
     // Construir la ruta completa: serverName/filePath usando utilidades seguras
     const fullRelativePath = path.join(serverValidation.normalizedPath, fileValidation.normalizedPath);
-    const safePath = createSafePath(fullRelativePath);
+    const safePath = createSafePath(fullRelativePath,defaultPaths.serversPath);
     
     // Verificar que el archivo existe antes de intentar descargarlo
     if (!(await pathExists(safePath))) {
