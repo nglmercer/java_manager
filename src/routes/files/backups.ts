@@ -8,6 +8,8 @@ import { stat } from 'fs/promises';
 import { extname, join } from 'path';
 import { stream } from 'hono/streaming';
 import { defaultPaths,tempPath } from "../../config.js";
+import { writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
 const BackupsRouter = new Hono();
 
 // Validation schemas
@@ -28,6 +30,11 @@ const listBackupsSchema = z.object({
   sortBy: z.enum(['name', 'size', 'created']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   filterByServer: z.string().optional()
+});
+
+const uploadBackupSchema = z.object({
+  filename: z.string().min(1, 'Filename is required'),
+  overwrite: z.boolean().optional().default(false)
 });
 
 // GET /backups - List all backups
@@ -203,6 +210,65 @@ BackupsRouter.get('/:name/download', async (c) => {
     }
   } catch (error) {
     return c.json({ error: 'Failed to download backup' }, 500);
+  }
+});
+
+// POST /backups/upload - Upload a backup file
+BackupsRouter.post('/upload', async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const file = body['file'] as File;
+    const overwrite = body['overwrite'] === 'true' || body['overwrite'];
+    
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+    
+    // Validate file extension (only allow common backup formats)
+    const allowedExtensions = ['.zip', '.tar', '.gz', '.tar.gz', '.7z', '.rar'];
+    const fileExtension = extname(file.name).toLowerCase();
+    const isValidExtension = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+    
+    if (!isValidExtension) {
+      return c.json({ 
+        error: 'Invalid file format. Allowed formats: ' + allowedExtensions.join(', ') 
+      }, 400);
+    }
+    
+    // Ensure backup directory exists
+    if (!existsSync(defaultPaths.backupPath)) {
+      await mkdir(defaultPaths.backupPath, { recursive: true });
+    }
+    
+    const backupPath = join(defaultPaths.backupPath, file.name);
+    
+    // Check if file already exists and overwrite is not allowed
+    if (existsSync(backupPath) && !overwrite) {
+      return c.json({ 
+        error: 'File already exists. Set overwrite=true to replace it.' 
+      }, 409);
+    }
+    
+    // Convert File to Buffer and save
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    await writeFile(backupPath, buffer);
+    
+    return c.json({
+      success: true,
+      message: 'Backup uploaded successfully',
+      data: {
+        filename: file.name,
+        size: file.size,
+        path: backupPath,
+        overwritten: existsSync(backupPath) && overwrite
+      }
+    }, 201);
+    
+  } catch (error) {
+    console.error('Upload error:', error);
+    return c.json({ error: 'Failed to upload backup' }, 500);
   }
 });
 

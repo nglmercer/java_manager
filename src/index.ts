@@ -12,7 +12,7 @@ import FilemanagerRouter from './routes/files/index.js'
 import extensionsJarRouter from './routes/files/extensionsJar.js'
 import { SocketIOLikeServer, SocketIOLikeSocket, defaultLogger } from 'ws-socketio-adapter';
 import { emitter } from './Emitter.js'
-
+import { staticRoutes } from './routes/static.js'
 
 const wsServer = new SocketIOLikeServer();
 const app = new Hono();
@@ -23,6 +23,7 @@ app.use(cors({
 app.route('/java', JavaRouter);
 app.route('/java', JavaMainRouter);
 app.route('/', generationRouter);
+app.route('/', staticRoutes);
 app.route('/hardware', ResourceRouter);
 app.route('/mc/cores', coresRouter);
 app.route('/mc/servers',serverInfoRouter);
