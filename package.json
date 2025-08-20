@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.17.1",
+    "@hono/zod-validator": "^0.7.2",
     "@types/uuid": "^10.0.0",
     "axios": "^1.10.0",
     "hono": "^4.8.5",
@@ -17,7 +18,8 @@
     "systeminformation": "^5.27.7",
     "tree-kill-promise": "^4.0.0",
     "uuid": "^11.1.0",
-    "ws-socketio-adapter": "^1.0.6"
+    "ws-socketio-adapter": "^1.0.6",
+    "zod": "^4.0.17"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",

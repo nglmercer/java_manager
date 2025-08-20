@@ -4,8 +4,12 @@ import { FileUtils } from "../../utils/file.utils.js";
 import { defaultPaths } from "../../config.js";
 import { PathUtils } from "../../utils/path-utils.js";
 import fs from "node:fs/promises";
+import {BackupsRouter} from "./backups.js";
 
 const FilemanagerRouter = new Hono();
+
+// Mount backup routes
+FilemanagerRouter.route('/backups', BackupsRouter);
 
 // Usar las utilidades de rutas mejoradas
 const { createSafePath, validatePath, extractServerAndPath, pathExists, isDirectory, buildSafePathWithValidation } = PathUtils;
