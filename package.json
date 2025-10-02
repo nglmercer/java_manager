@@ -14,7 +14,7 @@
     "hono": "^4.9.6",
     "json-obj-manager": "^1.4.5",
     "node-html-parser": "^7.0.1",
-    "node-task-manager": "^2.1.2",
+    "node-task-manager": "^2.1.4",
     "systeminformation": "^5.27.7",
     "tree-kill-promise": "^4.0.0",
     "uuid": "^11.1.0",

@@ -37,7 +37,7 @@ app.get('/', (c) => {
 
 const server = await serve({
   fetch: app.fetch,
-  port: 8080
+  port: 3000
 }, (info) => {
   console.log(`Server is running on http://localhost:${info.port}`)
 })
