@@ -54,6 +54,15 @@ export interface BackupListOptions {
   filterByServer?: string;
 }
 
+// Return type for operations that need task tracking
+export interface BackupOperationResult extends BackupResult {
+  taskId: string;
+}
+
+export interface RestoreOperationResult extends RestoreResult {
+  taskId: string;
+}
+
 // ------------------------------------------------------------------
 // 2. Internal implementation functions
 // ------------------------------------------------------------------
@@ -63,7 +72,7 @@ export interface BackupListOptions {
  */
 const _createServerBackup = async (
   options: ServerBackupOptions
-): Promise<BackupResult> => {
+): Promise<BackupOperationResult> => {
   const { serverName, outputFilename, ...taskOptions } = options;
   
   // Validate server name
@@ -84,18 +93,19 @@ const _createServerBackup = async (
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const backupFilename = outputFilename || `${serverValidation.normalizedPath}_backup_${timestamp}.zip`;
   
-  // Create backup path
-  const backupPath = path.join(defaultPaths.backupPath, backupFilename);
-  
-  // Create backup using TaskManager
-  const taskId = await taskManager.createBackup(serverPath, {
+  // Create backup using TaskManager - returns { taskId, promise }
+  const { taskId, promise } = taskManager.createBackup(serverPath, {
     ...taskOptions,
     outputFilename: backupFilename
   });
   
+  // Wait for backup to complete
+  const result = await promise;
+  
   return {
-    backupPath: backupPath,
-    size: 0 // Will be updated when backup completes
+    taskId,
+    backupPath: result.backupPath,
+    size: result.size
   };
 };
 
@@ -104,7 +114,7 @@ const _createServerBackup = async (
  */
 const _restoreBackup = async (
   options: BackupRestoreOptions
-): Promise<RestoreResult> => {
+): Promise<RestoreOperationResult> => {
   const { backupName, destinationServerName, ...taskOptions } = options;
   
   // Validate backup name
@@ -121,24 +131,30 @@ const _restoreBackup = async (
     throw new Error(`Backup file does not exist: ${backupValidation.normalizedPath}`);
   }
   
-  // Determine destination path
-  let destinationPath = defaultPaths.serversPath;
-  if (destinationServerName) {
+  // Determine destination folder name
+  const destinationFolderName = destinationServerName 
+    ? PathUtils.validatePath(destinationServerName).normalizedPath 
+    : undefined;
+  
+  if (destinationServerName && destinationFolderName) {
     const serverValidation = PathUtils.validatePath(destinationServerName);
     if (!serverValidation.isValid) {
       throw new Error(`Invalid destination server name: ${serverValidation.errors.join(', ')}`);
     }
-    destinationPath = path.join(defaultPaths.serversPath, serverValidation.normalizedPath);
   }
   
-  // Restore backup using TaskManager
-  const result = await taskManager.restoreBackup(backupPath, {
+  // Restore backup using TaskManager - returns { taskId, promise }
+  const { taskId, promise } = taskManager.restoreBackup(backupPath, {
     ...taskOptions,
-    destinationFolderName: destinationServerName
+    destinationFolderName
   });
   
+  // Wait for restore to complete
+  //const result = await promise;
+  
   return {
-    destinationPath: result
+    taskId,
+    destinationPath: destinationFolderName as string
   };
 };
 
@@ -302,10 +318,10 @@ function isValidBackupFile(filename: string): boolean {
 
 export const BackupService = {
   /** Creates a backup of a server directory */
-  createServerBackup: asyncHandler<BackupResult, [ServerBackupOptions]>(_createServerBackup),
+  createServerBackup: asyncHandler<BackupOperationResult, [ServerBackupOptions]>(_createServerBackup),
   
   /** Restores a backup to a server directory */
-  restoreBackup: asyncHandler<RestoreResult, [BackupRestoreOptions]>(_restoreBackup),
+  restoreBackup: asyncHandler<RestoreOperationResult, [BackupRestoreOptions]>(_restoreBackup),
   
   /** Lists all available backups */
   listBackups: asyncHandler<BackupInfo[], [BackupListOptions?]>(_listBackups),
@@ -321,7 +337,7 @@ export const BackupService = {
  * Creates a backup of a server directory
  * 
  * @param options Configuration for the backup operation
- * @returns A Promise that resolves to a ServiceResponse containing BackupResult
+ * @returns A Promise that resolves to a ServiceResponse containing BackupOperationResult
  */
 export async function createServerBackup(options: ServerBackupOptions) {
   return BackupService.createServerBackup(options);
@@ -331,7 +347,7 @@ export async function createServerBackup(options: ServerBackupOptions) {
  * Restores a backup to a server directory
  * 
  * @param options Configuration for the restore operation
- * @returns A Promise that resolves to a ServiceResponse containing RestoreResult
+ * @returns A Promise that resolves to a ServiceResponse containing RestoreOperationResult
  */
 export async function restoreBackup(options: BackupRestoreOptions) {
   return BackupService.restoreBackup(options);
